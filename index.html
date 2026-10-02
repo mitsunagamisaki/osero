@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>極上オセロ (Reversi Master)</title>
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --card-bg: rgba(30, 41, 59, 0.7);
+      --card-border: rgba(255, 255, 255, 0.1);
+      --board-felt: #1e6b37;
+      --board-felt-dark: #144e28;
+      --board-line: #0f3d1e;
+      --board-wood: #451a03;
+      --board-wood-border: #78350f;
+      --accent-gold: #f59e0b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle at 50% 20%, #1e293b, var(--bg-color));
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow-x: hidden;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 680px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    /* Header */
+    header {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 8px;
+    }
+
+    .title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #111 50%, #eee 50%);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+      border: 2px solid #e2e8f0;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      background: linear-gradient(to right, #ffffff, #cbd5e1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-icon {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 1.1rem;
+    }
+
+    .btn-icon:hover {
+      background: rgba(255, 255, 255, 0.18);
+      transform: translateY(-2px);
+    }
+
+    /* Scoreboard */
+    .scoreboard {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 12px 20px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .player-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 12px;
+      border-radius: 12px;
+      transition: all 0.3s ease;
+    }
+
+    .player-card.active {
+      background: rgba(255, 255, 255, 0.1);
+      box-shadow: 0 0 16px rgba(245, 158, 11, 0.3);
+      border: 1px solid rgba(245, 158, 11, 0.5);
+    }
+
+    .player-card.right {
+      flex-direction: row-reverse;
+      text-align: right;
+    }
+
+    .player-badge {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      position: relative;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    }
+
+    .badge-black {
+      background: radial-gradient(circle at 35% 35%, #475569, #09090b);
+      border: 2px solid #64748b;
+    }
+
+    .badge-white {
+      background: radial-gradient(circle at 35% 35%, #ffffff, #cbd5e1);
+      border: 2px solid #ffffff;
+    }
+
+    .player-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .player-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .player-score {
+      font-size: 1.8rem;
+      font-weight: 800;
+      line-height: 1;
+      color: #fff;
+    }
+
+    .turn-indicator {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--accent-gold);
+    }
+
+    .turn-pulse {
+      width: 8px;
+      height: 8px;
+      background: var(--accent-gold);
+      border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.9); opacity: 0.5; box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+      70% { transform: scale(1.1); opacity: 1; box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+      100% { transform: scale(0.9); opacity: 0.5; box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+    }
+
+    /* Score bar */
+    .score-bar-container {
+      width: 100%;
+      height: 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 4px;
+      display: flex;
+    }
+
+    .score-bar-black {
+      height: 100%;
+      background: #1e293b;
+      transition: width 0.4s ease;
+    }
+
+    .score-bar-white {
+      height: 100%;
+      background: #f1f5f9;
+      transition: width 0.4s ease;
+    }
+
+    /* Game Board Wrapper */
+    .board-wrapper {
+      position: relative;
+      padding: 14px;
+      background: linear-gradient(145deg, var(--board-wood-border), var(--board-wood));
+      border-radius: 20px;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.6), inset 0 2px 4px rgba(255,255,255,0.2), inset 0 -4px 6px rgba(0,0,0,0.5);
+    }
+
+    /* Reversi Board */
+    .board {
+      width: min(84vw, 460px);
+      height: min(84vw, 460px);
+      background: radial-gradient(circle at center, var(--board-felt), var(--board-felt-dark));
+      border-radius: 8px;
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+      gap: 3px;
+      background-color: var(--board-line);
+      padding: 4px;
+      position: relative;
+      box-shadow: inset 0 4px 10px rgba(0,0,0,0.5);
+    }
+
+    /* Star Markers (Dots on standard Othello board) */
+    .star-dot {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      background-color: rgba(10, 30, 15, 0.85);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    /* Cells */
+    .cell {
+      background: radial-gradient(circle at center, var(--board-felt) 60%, var(--board-felt-dark));
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s ease;
+    }
+
+    .cell:hover {
+      background: #237b40;
+    }
+
+    /* Valid move hint */
+    .cell.valid::after {
+      content: '';
+      width: 24%;
+      height: 24%;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.35);
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+      transition: all 0.2s ease;
+      pointer-events: none;
+    }
+
+    .cell.valid:hover::after {
+      transform: scale(1.6);
+      background: rgba(245, 158, 11, 0.85);
+      box-shadow: 0 0 12px rgba(245, 158, 11, 0.9);
+    }
+
+    .cell.best-hint::after {
+      background: rgba(239, 68, 68, 0.85) !important;
+      transform: scale(1.5) !important;
+      animation: pulse 1s infinite alternate;
+    }
+
+    /* Last placed marker */
+    .last-placed-marker {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ef4444;
+      border: 1.5px solid #fff;
+      box-shadow: 0 0 6px #ef4444;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    /* Discs */
+    .disc-container {
+      width: 86%;
+      height: 86%;
+      position: relative;
+      perspective: 800px;
+    }
+
+    .disc {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.45);
+    }
+
+    .disc-front, .disc-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      backface-visibility: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Black side */
+    .disc-front {
+      background: radial-gradient(circle at 35% 35%, #475569, #09090b);
+      border: 1px solid #334155;
+      box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.2), inset 0 -3px 5px rgba(0, 0, 0, 0.8);
+    }
+
+    /* White side */
+    .disc-back {
+      background: radial-gradient(circle at 35% 35%, #ffffff, #cbd5e1);
+      border: 1px solid #94a3b8;
+      box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.9), inset 0 -3px 5px rgba(0, 0, 0, 0.3);
+      transform: rotateY(180deg);
+    }
+
+    .disc.white {
+      transform: rotateY(180deg);
+    }
+
+    .disc.black {
+      transform: rotateY(0deg);
+    }
+
+    /* Controls & Options */
+    .controls {
+      width: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 10px 18px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      backdrop-filter: blur(8px);
+    }
+
+    .btn:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      border: 1px solid #3b82f6;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+    }
+
+    /* Settings & Status Bar */
+    .status-panel {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 8px 16px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .status-message {
+      font-weight: 500;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-60px);
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--accent-gold);
+      color: #fff;
+      padding: 10px 24px;
+      border-radius: 30px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      padding: 16px;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      background: #1e293b;
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 28px;
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      transform: scale(0.9);
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .modal-overlay.active .modal-card {
+      transform: scale(1);
+    }
+
+    .modal-title {
+      font-size: 1.6rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .modal-subtitle {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+
+    .modal-scores {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      background: rgba(0,0,0,0.25);
+      padding: 16px;
+      border-radius: 14px;
+      margin-bottom: 24px;
+    }
+
+    .modal-score-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .modal-score-val {
+      font-size: 2rem;
+      font-weight: 800;
+    }
+
+    /* Settings Form */
+    .setting-group {
+      text-align: left;
+      margin-bottom: 18px;
+    }
+
+    .setting-label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .segmented-control {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+      background: rgba(0,0,0,0.3);
+      border-radius: 10px;
+      padding: 3px;
+      gap: 4px;
+    }
+
+    .segmented-control button {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .segmented-control button.selected {
+      background: var(--accent-gold);
+      color: #0f172a;
+      box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+    }
+
+    /* Confetti Canvas */
+    #confetti-canvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 150;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="confetti-canvas"></canvas>
+
+  <div class="toast" id="toast">パスしました</div>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="title-group">
+        <div class="logo-icon"></div>
+        <h1>極上オセロ</h1>
+      </div>
+      <div class="header-controls">
+        <button class="btn-icon" id="btn-sound" title="効果音 切替">🔊</button>
+        <button class="btn-icon" id="btn-settings" title="設定">⚙️</button>
+      </div>
+    </header>
+
+    <!-- Scoreboard -->
+    <div class="scoreboard">
+      <div class="player-card active" id="player-black-card">
+        <div class="player-badge badge-black">●</div>
+        <div class="player-info">
+          <span class="player-name" id="name-black">あなた (黒)</span>
+          <span class="player-score" id="score-black">2</span>
+        </div>
+      </div>
+
+      <div class="turn-indicator">
+        <div class="turn-pulse" id="turn-pulse"></div>
+        <span id="turn-text">黒の手番</span>
+      </div>
+
+      <div class="player-card right" id="player-white-card">
+        <div class="player-badge badge-white">○</div>
+        <div class="player-info">
+          <span class="player-name" id="name-white">AI (白)</span>
+          <span class="player-score" id="score-white">2</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Score Ratio Bar -->
+    <div class="score-bar-container">
+      <div class="score-bar-black" id="score-bar-black" style="width: 50%;"></div>
+      <div class="score-bar-white" id="score-bar-white" style="width: 50%;"></div>
+    </div>
+
+    <!-- Board -->
+    <div class="board-wrapper">
+      <div class="board" id="board">
+        <!-- 64 cells generated by JS -->
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <button class="btn" id="btn-undo">
+        <span>↩️</span> 一手戻す
+      </button>
+      <button class="btn" id="btn-hint">
+        <span>💡</span> ヒント
+      </button>
+      <button class="btn btn-primary" id="btn-restart">
+        <span>🔄</span> 新規ゲーム
+      </button>
+    </div>
+
+    <!-- Status Message -->
+    <div class="status-panel">
+      <span class="status-message" id="status-message">黒の先手です。石を置いてください。</span>
+      <span id="mode-badge" style="font-weight: 600; color: var(--accent-gold);">VS AI (普通)</span>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal-card">
+      <h2 class="modal-title">ゲーム設定</h2>
+      <p class="modal-subtitle">対戦形式やAIの難易度を選択できます</p>
+
+      <div class="setting-group">
+        <label class="setting-label">対戦モード</label>
+        <div class="segmented-control" id="mode-selector">
+          <button data-mode="ai" class="selected">vs AI</button>
+          <button data-mode="pvp">2人プレイ</button>
+        </div>
+      </div>
+
+      <div class="setting-group" id="difficulty-group">
+        <label class="setting-label">AI難易度</label>
+        <div class="segmented-control" id="diff-selector">
+          <button data-diff="easy">初級</button>
+          <button data-diff="medium" class="selected">普通</button>
+          <button data-diff="hard">上級</button>
+        </div>
+      </div>
+
+      <div class="setting-group" id="player-color-group">
+        <label class="setting-label">あなたの手番 (AI対戦時)</label>
+        <div class="segmented-control" id="color-selector">
+          <button data-color="1" class="selected">黒 (先手)</button>
+          <button data-color="-1">白 (後手)</button>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <label class="setting-label">ガイド表示</label>
+        <div class="segmented-control" id="guide-selector">
+          <button data-guide="on" class="selected">有効</button>
+          <button data-guide="off">無効</button>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="btn-save-settings" style="width: 100%; justify-content: center; margin-top: 10px;">
+        設定を適用して新しく始める
+      </button>
+    </div>
+  </div>
+
+  <!-- Result Modal -->
+  <div class="modal-overlay" id="result-modal">
+    <div class="modal-card">
+      <h2 class="modal-title" id="result-title">対局終了！</h2>
+      <p class="modal-subtitle" id="result-desc">素晴らしい戦いでした！</p>
+
+      <div class="modal-scores">
+        <div class="modal-score-item">
+          <div class="player-badge badge-black">●</div>
+          <span style="font-size: 0.85rem; color: var(--text-muted);" id="modal-black-name">黒</span>
+          <span class="modal-score-val" id="modal-score-black">32</span>
+        </div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-muted);">VS</div>
+        <div class="modal-score-item">
+          <div class="player-badge badge-white">○</div>
+          <span style="font-size: 0.85rem; color: var(--text-muted);" id="modal-white-name">白</span>
+          <span class="modal-score-val" id="modal-score-white">32</span>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="btn-modal-restart" style="width: 100%; justify-content: center;">
+        もう一度遊ぶ
+      </button>
+    </div>
+  </div>
+
+  <script>
+    /* ==========================================================
+       1. Audio Synthesizer (Web Audio API)
+       ========================================================== */
+    class SoundController {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      playPlace() {
+        if (!this.enabled) return;
+        this.init();
+        const t = this.ctx.currentTime;
+        
+        // Thud / wooden click
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(220, t);
+        osc.frequency.exponentialRampToValueAtTime(80, t + 0.08);
+
+        gain.gain.setValueAtTime(0.6, t);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.08);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.09);
+      }
+
+      playFlip(delay = 0) {
+        if (!this.enabled) return;
+        this.init();
+        setTimeout(() => {
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(450, t);
+          osc.frequency.exponentialRampToValueAtTime(700, t + 0.06);
+
+          gain.gain.setValueAtTime(0.2, t);
+          gain.gain.exponentialRampToValueAtTime(0.01, t + 0.06);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.07);
+        }, delay * 1000);
+      }
+
+      playPass() {
+        if (!this.enabled) return;
+        this.init();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(300, t);
+        osc.frequency.linearRampToValueAtTime(200, t + 0.25);
+        gain.gain.setValueAtTime(0.2, t);
+        gain.gain.linearRampToValueAtTime(0.01, t + 0.25);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.26);
+      }
+
+      playWin() {
+        if (!this.enabled) return;
+        this.init();
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        notes.forEach((freq, idx) => {
+          setTimeout(() => {
+            const t = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0.3, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(t);
+            osc.stop(t + 0.45);
+          }, idx * 120);
+        });
+      }
+    }
+
+    /* ==========================================================
+       2. Confetti Particle System
+       ========================================================== */
+    class ConfettiEffect {
+      constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas.getContext('2d');
+        this.particles = [];
+        this.animating = false;
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+      }
+
+      resize() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+      }
+
+      start() {
+        this.particles = [];
+        const colors = ['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#ec4899', '#ffffff'];
+        for (let i = 0; i < 120; i++) {
+          this.particles.push({
+            x: Math.random() * this.canvas.width,
+            y: Math.random() * -this.canvas.height * 0.5,
+            size: Math.random() * 8 + 4,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            vx: (Math.random() - 0.5) * 3,
+            vy: Math.random() * 4 + 3,
+            rot: Math.random() * 360,
+            vRot: (Math.random() - 0.5) * 10
+          });
+        }
+        if (!this.animating) {
+          this.animating = true;
+          this.loop();
+        }
+      }
+
+      loop() {
+        if (!this.animating) return;
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        let activeCount = 0;
+        for (const p of this.particles) {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.rot += p.vRot;
+
+          if (p.y < this.canvas.height) {
+            activeCount++;
+            this.ctx.save();
+            this.ctx.translate(p.x, p.y);
+            this.ctx.rotate((p.rot * Math.PI) / 180);
+            this.ctx.fillStyle = p.color;
+            this.ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+            this.ctx.restore();
+          }
+        }
+
+        if (activeCount > 0) {
+          requestAnimationFrame(() => this.loop());
+        } else {
+          this.animating = false;
+          this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+      }
+    }
+
+    /* ==========================================================
+       3. Reversi Engine & AI
+       ========================================================== */
+    const BLACK = 1;
+    const WHITE = -1;
+    const EMPTY = 0;
+
+    const DIRS = [
+      [-1, -1], [-1, 0], [-1, 1],
+      [ 0, -1],          [ 0, 1],
+      [ 1, -1], [ 1, 0], [ 1, 1]
+    ];
+
+    // Position Evaluation Matrix
+    const EVAL_MATRIX = [
+      [ 100, -25,  12,   6,   6,  12, -25,  100],
+      [ -25, -45,  -3,  -3,  -3,  -3, -45,  -25],
+      [  12,  -3,   2,   1,   1,   2,  -3,   12],
+      [   6,  -3,   1,   1,   1,   1,  -3,    6],
+      [   6,  -3,   1,   1,   1,   1,  -3,    6],
+      [  12,  -3,   2,   1,   1,   2,  -3,   12],
+      [ -25, -45,  -3,  -3,  -3,  -3, -45,  -25],
+      [ 100, -25,  12,   6,   6,  12, -25,  100]
+    ];
+
+    class OthelloGame {
+      constructor() {
+        this.board = Array(8).fill(null).map(() => Array(8).fill(EMPTY));
+        this.currentTurn = BLACK;
+        this.history = [];
+        this.lastMove = null;
+        this.isGameOver = false;
+
+        // Settings
+        this.mode = 'ai'; // 'ai' or 'pvp'
+        this.difficulty = 'medium'; // 'easy', 'medium', 'hard'
+        this.userColor = BLACK; // When against AI
+        this.showGuide = true;
+
+        this.initBoard();
+      }
+
+      initBoard() {
+        this.board = Array(8).fill(null).map(() => Array(8).fill(EMPTY));
+        this.board[3][3] = WHITE;
+        this.board[3][4] = BLACK;
+        this.board[4][3] = BLACK;
+        this.board[4][4] = WHITE;
+        this.currentTurn = BLACK;
+        this.history = [];
+        this.lastMove = null;
+        this.isGameOver = false;
+      }
+
+      getFlips(board, r, c, player) {
+        if (board[r][c] !== EMPTY) return [];
+        const opponent = -player;
+        const flips = [];
+
+        for (const [dr, dc] of DIRS) {
+          let nr = r + dr;
+          let nc = c + dc;
+          const line = [];
+
+          while (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && board[nr][nc] === opponent) {
+            line.push([nr, nc]);
+            nr += dr;
+            nc += dc;
+          }
+
+          if (line.length > 0 && nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && board[nr][nc] === player) {
+            flips.push(...line);
+          }
+        }
+        return flips;
+      }
+
+      getValidMoves(board, player) {
+        const moves = [];
+        for (let r = 0; r < 8; r++) {
+          for (let c = 0; c < 8; c++) {
+            const flips = this.getFlips(board, r, c, player);
+            if (flips.length > 0) {
+              moves.push({ r, c, flips });
+            }
+          }
+        }
+        return moves;
+      }
+
+      makeMove(r, c) {
+        const flips = this.getFlips(this.board, r, c, this.currentTurn);
+        if (flips.length === 0) return null;
+
+        // Save state for undo
+        this.history.push({
+          board: this.board.map(row => [...row]),
+          turn: this.currentTurn,
+          lastMove: this.lastMove ? { ...this.lastMove } : null
+        });
+
+        // Place stone
+        this.board[r][c] = this.currentTurn;
+        for (const [fr, fc] of flips) {
+          this.board[fr][fc] = this.currentTurn;
+        }
+        this.lastMove = { r, c };
+
+        // Next turn
+        const nextPlayer = -this.currentTurn;
+        const nextMoves = this.getValidMoves(this.board, nextPlayer);
+
+        let passed = false;
+        if (nextMoves.length > 0) {
+          this.currentTurn = nextPlayer;
+        } else {
+          // Check if current player can move
+          const currentMoves = this.getValidMoves(this.board, this.currentTurn);
+          if (currentMoves.length > 0) {
+            passed = true;
+            // currentTurn remains the same
+          } else {
+            // Both cannot move: Game Over
+            this.isGameOver = true;
+          }
+        }
+
+        return { r, c, flips, passed, isGameOver: this.isGameOver };
+      }
+
+      undo() {
+        if (this.history.length === 0) return false;
+        const prev = this.history.pop();
+        this.board = prev.board;
+        this.currentTurn = prev.turn;
+        this.lastMove = prev.lastMove;
+        this.isGameOver = false;
+        return true;
+      }
+
+      getScores() {
+        let black = 0;
+        let white = 0;
+        for (let r = 0; r < 8; r++) {
+          for (let c = 0; c < 8; c++) {
+            if (this.board[r][c] === BLACK) black++;
+            else if (this.board[r][c] === WHITE) white++;
+          }
+        }
+        return { black, white };
+      }
+
+      // AI Logic
+      getAIMove() {
+        const moves = this.getValidMoves(this.board, this.currentTurn);
+        if (moves.length === 0) return null;
+
+        if (this.difficulty === 'easy') {
+          return moves[Math.floor(Math.random() * moves.length)];
+        }
+
+        if (this.difficulty === 'medium') {
+          // Greedily pick highest score position + flips
+          let bestMove = moves[0];
+          let bestScore = -Infinity;
+          for (const m of moves) {
+            let score = EVAL_MATRIX[m.r][m.c] + m.flips.length * 2;
+            if (score > bestScore) {
+              bestScore = score;
+              bestMove = m;
+            }
+          }
+          return bestMove;
+        }
+
+        // Hard: Minimax with Alpha-Beta Pruning (Depth 4)
+        return this.getBestMoveMinimax(moves, 4);
+      }
+
+      getBestMoveMinimax(moves, depth) {
+        let bestMove = moves[0];
+        let alpha = -Infinity;
+        const beta = Infinity;
+        const player = this.currentTurn;
+
+        for (const move of moves) {
+          const simulatedBoard = this.board.map(row => [...row]);
+          simulatedBoard[move.r][move.c] = player;
+          for (const [fr, fc] of move.flips) {
+            simulatedBoard[fr][fc] = player;
+          }
+
+          const val = this.minimax(simulatedBoard, depth - 1, alpha, beta, false, player);
+          if (val > alpha) {
+            alpha = val;
+            bestMove = move;
+          }
+        }
+        return bestMove;
+      }
+
+      minimax(board, depth, alpha, beta, isMaximizing, aiPlayer) {
+        const currentPlayer = isMaximizing ? aiPlayer : -aiPlayer;
+        const validMoves = this.getValidMoves(board, currentPlayer);
+
+        if (depth === 0 || validMoves.length === 0) {
+          return this.evaluateBoard(board, aiPlayer);
+        }
+
+        if (isMaximizing) {
+          let maxEval = -Infinity;
+          for (const m of validMoves) {
+            const nextB = board.map(row => [...row]);
+            nextB[m.r][m.c] = currentPlayer;
+            for (const [fr, fc] of m.flips) nextB[fr][fc] = currentPlayer;
+
+            const ev = this.minimax(nextB, depth - 1, alpha, beta, false, aiPlayer);
+            maxEval = Math.max(maxEval, ev);
+            alpha = Math.max(alpha, ev);
+            if (beta <= alpha) break;
+          }
+          return maxEval;
+        } else {
+          let minEval = Infinity;
+          for (const m of validMoves) {
+            const nextB = board.map(row => [...row]);
+            nextB[m.r][m.c] = currentPlayer;
+            for (const [fr, fc] of m.flips) nextB[fr][fc] = currentPlayer;
+
+            const ev = this.minimax(nextB, depth - 1, alpha, beta, true, aiPlayer);
+            minEval = Math.min(minEval, ev);
+            beta = Math.min(beta, ev);
+            if (beta <= alpha) break;
+          }
+          return minEval;
+        }
+      }
+
+      evaluateBoard(board, player) {
+        let score = 0;
+        let pMoves = 0;
+        let oMoves = 0;
+
+        for (let r = 0; r < 8; r++) {
+          for (let c = 0; c < 8; c++) {
+            if (board[r][c] === player) {
+              score += EVAL_MATRIX[r][c];
+            } else if (board[r][c] === -player) {
+              score -= EVAL_MATRIX[r][c];
+            }
+          }
+        }
+
+        // Mobility weight
+        pMoves = this.getValidMoves(board, player).length;
+        oMoves = this.getValidMoves(board, -player).length;
+        score += (pMoves - oMoves) * 8;
+
+        return score;
+      }
+    }
+
+    /* ==========================================================
+       4. UI View & Controller
+       ========================================================== */
+    const sound = new SoundController();
+    const confetti = new ConfettiEffect('confetti-canvas');
+    const game = new OthelloGame();
+
+    // DOM Elements
+    const boardEl = document.getElementById('board');
+    const scoreBlackEl = document.getElementById('score-black');
+    const scoreWhiteEl = document.getElementById('score-white');
+    const cardBlack = document.getElementById('player-black-card');
+    const cardWhite = document.getElementById('player-white-card');
+    const turnTextEl = document.getElementById('turn-text');
+    const turnPulseEl = document.getElementById('turn-pulse');
+    const scoreBarBlack = document.getElementById('score-bar-black');
+    const scoreBarWhite = document.getElementById('score-bar-white');
+    const statusMsgEl = document.getElementById('status-message');
+    const modeBadgeEl = document.getElementById('mode-badge');
+    const toastEl = document.getElementById('toast');
+
+    const btnUndo = document.getElementById('btn-undo');
+    const btnHint = document.getElementById('btn-hint');
+    const btnRestart = document.getElementById('btn-restart');
+    const btnSound = document.getElementById('btn-sound');
+    const btnSettings = document.getElementById('btn-settings');
+
+    const settingsModal = document.getElementById('settings-modal');
+    const resultModal = document.getElementById('result-modal');
+    const btnSaveSettings = document.getElementById('btn-save-settings');
+    const btnModalRestart = document.getElementById('btn-modal-restart');
+
+    let isThinking = false;
+    let hintPosition = null;
+
+    // Build Board DOM Grid
+    function createBoardDOM() {
+      boardEl.innerHTML = '';
+      
+      // Add standard star dots (at coordinates: (2,2), (2,6), (6,2), (6,6) in 0-indexed)
+      const stars = [
+        { r: 2, c: 2 }, { r: 2, c: 6 },
+        { r: 6, c: 2 }, { r: 6, c: 6 }
+      ];
+      stars.forEach(s => {
+        const dot = document.createElement('div');
+        dot.className = 'star-dot';
+        dot.style.top = `${s.r * 12.5}%`;
+        dot.style.left = `${s.c * 12.5}%`;
+        boardEl.appendChild(dot);
+      });
+
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          cell.dataset.r = r;
+          cell.dataset.c = c;
+
+          const discContainer = document.createElement('div');
+          discContainer.className = 'disc-container';
+          
+          const disc = document.createElement('div');
+          disc.className = 'disc';
+          disc.id = `disc-${r}-${c}`;
+
+          const front = document.createElement('div');
+          front.className = 'disc-front';
+          const back = document.createElement('div');
+          back.className = 'disc-back';
+
+          disc.appendChild(front);
+          disc.appendChild(back);
+          discContainer.appendChild(disc);
+          cell.appendChild(discContainer);
+
+          cell.addEventListener('click', () => handleCellClick(r, c));
+          boardEl.appendChild(cell);
+        }
+      }
+    }
+
+    function showToast(text) {
+      toastEl.textContent = text;
+      toastEl.classList.add('show');
+      setTimeout(() => toastEl.classList.remove('show'), 2000);
+    }
+
+    function updateUI() {
+      const scores = game.getScores();
+      scoreBlackEl.textContent = scores.black;
+      scoreWhiteEl.textContent = scores.white;
+
+      const total = Math.max(1, scores.black + scores.white);
+      scoreBarBlack.style.width = `${(scores.black / total) * 100}%`;
+      scoreBarWhite.style.width = `${(scores.white / total) * 100}%`;
+
+      // Turn styling
+      if (game.currentTurn === BLACK) {
+        cardBlack.classList.add('active');
+        cardWhite.classList.remove('active');
+        turnTextEl.textContent = '黒の手番';
+        turnPulseEl.style.background = '#f59e0b';
+      } else {
+        cardBlack.classList.remove('active');
+        cardWhite.classList.add('active');
+        turnTextEl.textContent = '白の手番';
+        turnPulseEl.style.background = '#38bdf8';
+      }
+
+      // Valid Moves
+      const validMoves = game.isGameOver ? [] : game.getValidMoves(game.board, game.currentTurn);
+      const isUserTurn = game.mode === 'pvp' || game.currentTurn === game.userColor;
+
+      // Update grid cells & discs
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const cell = boardEl.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+          const disc = document.getElementById(`disc-${r}-${c}`);
+          const val = game.board[r][c];
+
+          // Reset cell classes
+          cell.classList.remove('valid', 'best-hint');
+          const oldMarker = cell.querySelector('.last-placed-marker');
+          if (oldMarker) oldMarker.remove();
+
+          // Last move indicator
+          if (game.lastMove && game.lastMove.r === r && game.lastMove.c === c) {
+            const marker = document.createElement('div');
+            marker.className = 'last-placed-marker';
+            cell.appendChild(marker);
+          }
+
+          // Hint dot
+          if (hintPosition && hintPosition.r === r && hintPosition.c === c) {
+            cell.classList.add('best-hint');
+          } else if (game.showGuide && isUserTurn && validMoves.some(m => m.r === r && m.c === c)) {
+            cell.classList.add('valid');
+          }
+
+          // Disc presence
+          if (val === EMPTY) {
+            disc.style.display = 'none';
+          } else {
+            disc.style.display = 'block';
+            if (val === BLACK) {
+              disc.classList.remove('white');
+              disc.classList.add('black');
+            } else {
+              disc.classList.remove('black');
+              disc.classList.add('white');
+            }
+          }
+        }
+      }
+
+      // Undo button state
+      btnUndo.disabled = game.history.length === 0 || isThinking;
+      btnHint.disabled = !isUserTurn || validMoves.length === 0 || isThinking;
+
+      // Status text
+      if (game.isGameOver) {
+        showGameOver(scores);
+      } else {
+        if (game.mode === 'ai' && game.currentTurn !== game.userColor) {
+          statusMsgEl.textContent = 'AIが考え中...';
+        } else {
+          statusMsgEl.textContent = `${game.currentTurn === BLACK ? '黒' : '白'}の手番です。石を置いてください。`;
+        }
+      }
+    }
+
+    async function handleCellClick(r, c) {
+      if (game.isGameOver || isThinking) return;
+      if (game.mode === 'ai' && game.currentTurn !== game.userColor) return;
+
+      const result = game.makeMove(r, c);
+      if (!result) return; // Invalid move
+
+      hintPosition = null;
+      sound.playPlace();
+      
+      // Animate flip sounds
+      result.flips.forEach((_, idx) => {
+        sound.playFlip((idx + 1) * 0.08);
+      });
+
+      if (result.passed) {
+        sound.playPass();
+        showToast('相手が打てる手がないためパスしました');
+      }
+
+      updateUI();
+
+      // Trigger AI turn if needed
+      if (!game.isGameOver && game.mode === 'ai' && game.currentTurn !== game.userColor) {
+        await executeAITurn();
+      }
+    }
+
+    async function executeAITurn() {
+      isThinking = true;
+      btnUndo.disabled = true;
+      btnHint.disabled = true;
+      statusMsgEl.textContent = 'AIが長考しています...';
+
+      // Slight natural thinking delay
+      const thinkTime = game.difficulty === 'hard' ? 700 : 450;
+      await new Promise(res => setTimeout(res, thinkTime));
+
+      const aiMove = game.getAIMove();
+      if (aiMove) {
+        const result = game.makeMove(aiMove.r, aiMove.c);
+        sound.playPlace();
+        result.flips.forEach((_, idx) => {
+          sound.playFlip((idx + 1) * 0.08);
+        });
+
+        if (result.passed) {
+          sound.playPass();
+          showToast('打てる手がないためパスになりました');
+        }
+      }
+
+      isThinking = false;
+      updateUI();
+
+      // If AI passed and it's AI's turn again (rare double move), loop
+      if (!game.isGameOver && game.mode === 'ai' && game.currentTurn !== game.userColor) {
+        await executeAITurn();
+      }
+    }
+
+    function showGameOver(scores) {
+      let title = '';
+      let desc = '';
+
+      if (scores.black > scores.white) {
+        if (game.mode === 'ai') {
+          title = game.userColor === BLACK ? '🎉 あなたの勝利！' : 'AIの勝利！';
+          desc = game.userColor === BLACK ? '見事な戦略でAIに勝利しました！' : '次は勝てるよう作戦を練りましょう！';
+        } else {
+          title = '黒の勝利！';
+          desc = '黒プレイヤーの鮮やかな勝利です！';
+        }
+        if (game.mode !== 'ai' || game.userColor === BLACK) confetti.start();
+      } else if (scores.white > scores.black) {
+        if (game.mode === 'ai') {
+          title = game.userColor === WHITE ? '🎉 あなたの勝利！' : 'AIの勝利！';
+          desc = game.userColor === WHITE ? '見事な戦略でAIに勝利しました！' : '次は勝てるよう作戦を練りましょう！';
+        } else {
+          title = '白の勝利！';
+          desc = '白プレイヤーの鮮やかな勝利です！';
+        }
+        if (game.mode !== 'ai' || game.userColor === WHITE) confetti.start();
+      } else {
+        title = '引き分け！';
+        desc = '両者互角の素晴らしい大熱戦でした！';
+      }
+
+      sound.playWin();
+
+      document.getElementById('result-title').textContent = title;
+      document.getElementById('result-desc').textContent = desc;
+      document.getElementById('modal-score-black').textContent = scores.black;
+      document.getElementById('modal-score-white').textContent = scores.white;
+
+      document.getElementById('modal-black-name').textContent =
+        game.mode === 'ai' ? (game.userColor === BLACK ? 'あなた' : 'AI') : 'プレイヤー1';
+      document.getElementById('modal-white-name').textContent =
+        game.mode === 'ai' ? (game.userColor === WHITE ? 'あなた' : 'AI') : 'プレイヤー2';
+
+      resultModal.classList.add('active');
+    }
+
+    /* ==========================================================
+       5. Event Handlers
+       ========================================================== */
+    // Undo
+    btnUndo.addEventListener('click', () => {
+      if (isThinking) return;
+      hintPosition = null;
+      if (game.mode === 'ai') {
+        // Undo twice (AI move + User move)
+        game.undo();
+        if (game.currentTurn !== game.userColor) {
+          game.undo();
+        }
+      } else {
+        game.undo();
+      }
+      updateUI();
+    });
+
+    // Hint
+    btnHint.addEventListener('click', () => {
+      if (isThinking || game.isGameOver) return;
+      const moves = game.getValidMoves(game.board, game.currentTurn);
+      if (moves.length === 0) return;
+
+      // Find highest evaluation move
+      let bestMove = moves[0];
+      let bestScore = -Infinity;
+      for (const m of moves) {
+        let score = EVAL_MATRIX[m.r][m.c] + m.flips.length * 2;
+        if (score > bestScore) {
+          bestScore = score;
+          bestMove = m;
+        }
+      }
+      hintPosition = bestMove;
+      updateUI();
+      showToast(`おすすめの手: ${String.fromCharCode(65 + bestMove.c)}${bestMove.r + 1}`);
+    });
+
+    // Restart
+    btnRestart.addEventListener('click', () => {
+      hintPosition = null;
+      game.initBoard();
+      updateUI();
+      if (game.mode === 'ai' && game.userColor === WHITE) {
+        executeAITurn();
+      }
+    });
+
+    btnModalRestart.addEventListener('click', () => {
+      resultModal.classList.remove('active');
+      btnRestart.click();
+    });
+
+    // Sound Toggle
+    btnSound.addEventListener('click', () => {
+      sound.enabled = !sound.enabled;
+      btnSound.textContent = sound.enabled ? '🔊' : '🔇';
+      sound.init();
+    });
+
+    // Settings Modal
+    btnSettings.addEventListener('click', () => {
+      settingsModal.classList.add('active');
+    });
+
+    settingsModal.addEventListener('click', (e) => {
+      if (e.target === settingsModal) {
+        settingsModal.classList.remove('active');
+      }
+    });
+
+    // Segmented button selection handler
+    function setupSegmentedControl(containerId, callback) {
+      const container = document.getElementById(containerId);
+      container.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          container.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          callback(btn);
+        });
+      });
+    }
+
+    setupSegmentedControl('mode-selector', (btn) => {
+      const isAI = btn.dataset.mode === 'ai';
+      document.getElementById('difficulty-group').style.display = isAI ? 'block' : 'none';
+      document.getElementById('player-color-group').style.display = isAI ? 'block' : 'none';
+    });
+
+    setupSegmentedControl('diff-selector', () => {});
+    setupSegmentedControl('color-selector', () => {});
+    setupSegmentedControl('guide-selector', () => {});
+
+    btnSaveSettings.addEventListener('click', () => {
+      const mode = document.querySelector('#mode-selector button.selected').dataset.mode;
+      const diff = document.querySelector('#diff-selector button.selected').dataset.diff;
+      const color = parseInt(document.querySelector('#color-selector button.selected').dataset.color, 10);
+      const guide = document.querySelector('#guide-selector button.selected').dataset.guide === 'on';
+
+      game.mode = mode;
+      game.difficulty = diff;
+      game.userColor = color;
+      game.showGuide = guide;
+
+      // Update player names
+      const diffText = diff === 'easy' ? '初級' : diff === 'medium' ? '普通' : '上級';
+      if (mode === 'ai') {
+        modeBadgeEl.textContent = `VS AI (${diffText})`;
+        if (color === BLACK) {
+          document.getElementById('name-black').textContent = 'あなた (黒)';
+          document.getElementById('name-white').textContent = `AI (${diffText})`;
+        } else {
+          document.getElementById('name-black').textContent = `AI (${diffText})`;
+          document.getElementById('name-white').textContent = 'あなた (白)';
+        }
+      } else {
+        modeBadgeEl.textContent = '2人対戦 (PvP)';
+        document.getElementById('name-black').textContent = 'プレイヤー1 (黒)';
+        document.getElementById('name-white').textContent = 'プレイヤー2 (白)';
+      }
+
+      settingsModal.classList.remove('active');
+      game.initBoard();
+      updateUI();
+
+      if (game.mode === 'ai' && game.userColor === WHITE) {
+        executeAITurn();
+      }
+    });
+
+    // Start initial game
+    createBoardDOM();
+    updateUI();
+  </script>
+</body>
+</html>
